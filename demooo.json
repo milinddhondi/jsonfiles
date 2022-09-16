@@ -1,0 +1,196 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+    "VPCCIDR": {
+        "Description": "choose VPC CIDR",
+        "Type": "String",
+        "Default": "173.22.0.0/16",
+        "AllowedValues": ["173.22.0.0/16","173.24.0.0/16"]
+    },
+    "subnet1cidr": {
+        "Description": "choose subnet1 cidr",
+        "Type": "String",
+        "Default": "173.22.1.0/24",
+        "AllowedValues": ["173.22.1.0/24","173.24.1.0/24"]
+    },
+    "subnet2cidr": {
+        "Description": "choose subnet2 cidr",
+        "Type": "String",
+        "Default": "173.22.2.0/24",
+        "AllowedValues": ["173.22.2.0/24","173.24.2.0/24"]
+    },
+    "subnet1az": {
+        "Description": "choose AZ for subnet1",
+        "Type":"AWS::EC2::AvailabilityZone::Name",
+        "Default": "us-east-1a"
+    },
+    "subnet2az": {
+        "Description": "choose AZ for subnet2",
+        "Type": "AWS::EC2::AvailabilityZone::Name",
+        "Default": "us-east-1b"
+    },
+    "InstanceType": {
+        "Description": "Choose Instance Type",
+        "Type": "String",
+        "Default": "t2.micro",
+        "AllowedValues": ["t2.nano","t2.micro","t2.small"]
+    },
+    "keypair": {
+        "Description": "Choose keypair",
+        "Type": "AWS::EC2::KeyPair::KeyName",
+        "Default": "appserver"
+    },
+    "MyImage": {
+        "Description": "Choose AMI",
+        "Type": "String",
+        "Default": "ami-0022f774911c1d690",
+        "AllowedValues": ["ami-0022f774911c1d690","ami-06eecef118bbf9259","ami-0b0af3577fe5e3532"]
+    }
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "VPC1": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": { "Ref": "VPCCIDR" },
+          "Tags": [{ "Key": "Name", "Value":  "VPC1" }]
+        }
+      },
+      "subnet01": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "subnet1az" },
+          "VpcId": { "Ref": "VPC1" },
+          "CidrBlock": { "Ref": "subnet1cidr" },
+          "Tags": [{ "Key": "Name", "Value":  "subnet01" }]
+        }
+      },
+      "subnet02": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": { "Ref": "subnet2az" },
+          "VpcId": { "Ref": "VPC1" },
+          "CidrBlock": { "Ref": "subnet2cidr" },
+          "Tags": [{ "Key": "Name", "Value":  "subnet02" }]
+        }
+      },
+      "igwName": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "igwName" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "VPC1" },
+          "InternetGatewayId": { "Ref": "igwName" }
+        }
+      },
+      "RTVPC1": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "VPC1" },
+          "Tags": [{ "Key": "Name", "Value":  "RTVPC1" }]
+        }
+      },
+      "RTsub01assoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "subnet01" },
+          "RouteTableId": { "Ref": "RTVPC1" }
+        }
+      },
+      "RTsub02assoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "subnet02" },
+          "RouteTableId": { "Ref": "RTVPC1" }
+        }
+      },
+      "RT": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "RTVPC1" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "igwName" }
+        }
+      },
+      "SG1" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "-",
+          "SecurityGroupIngress" : [
+            {"IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0"},
+            {"IpProtocol": "tcp", "FromPort": "80", "ToPort": "80", "CidrIp": "0.0.0.0/0"}
+          ],
+          "VpcId" : { "Ref": "VPC1" },
+          "Tags" :  [ { "Key": "Name", "Value":  "SGVPC1" }]
+        }
+      },
+      "kottaserver": {
+          "Type": "AWS::EC2::Instance",
+          "Properties": {
+              "KeyName": { "Ref": "keypair" },
+              "SubnetId": { "Ref": "subnet01" },
+              "ImageId": { "Ref": "MyImage" },
+              "InstanceType": { "Ref": "InstanceType" },
+              "Monitoring": "false",
+              "SecurityGroupIds" : [{ "Ref": "SG1" }],
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "kottaserver"
+                  }
+              ],
+              "UserData": {
+                  "Fn::Base64": {
+                      "Fn::Join": [
+                          "",
+                          [
+                              "#!/bin/bash -ex",
+                              "-"
+                          ]
+                      ]
+                  }
+              }
+      }
+    },
+    "taskalb": {
+       "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+       "Properties": {
+          "Listeners" : [ {"LoadBalancerPort": "80","InstancePort": "80","Protocal":"HTTP"} ],
+          "HealthCheck": {
+       "Target": {
+          "Fn::Join": [ "", ["HTTP:", "80", "/" ] ]
+        },
+        "HealthyThreshold": "3",
+        "UnhealthyThreshold": "2",
+        "Interval": "30",
+        "Timeout": "3"
+       },
+          "Scheme" : "internet-facing",
+          "SecurityGroups" : [ { "Ref": "ELBSG" } ],
+          "Subnets" : [ { "Ref": "taskedsub1" },{ "Ref": "taskedsub2" }],
+          "Tags": [
+                {
+                  "Key": "Name",
+                  "Value": "taskalb"
+                }
+          ]
+       }
+     },
+    },
+    "Outputs": {
+
+    }
+}

@@ -1,0 +1,295 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "task template",
+    "Metadata": {
+
+    },
+    "Parameters": {
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "tasked": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": "111.0.0.0/16",
+          "EnableDnsHostnames": true,
+          "Tags": [{ "Key": "Name", "Value":  "tasked" }]
+        }
+      },
+      "taskedsub1": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": "us-east-1a",
+          "MapPublicIpOnLaunch": true,
+          "VpcId": { "Ref": "tasked" },
+          "CidrBlock": "111.0.1.0/24",
+          "Tags": [{ "Key": "Name", "Value":  "taskedsub1" }]
+        }
+      },
+      "taskedsub2": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": "us-east-1b",
+          "VpcId": { "Ref": "tasked" },
+          "CidrBlock": "111.0.2.0/24",
+          "Tags": [{ "Key": "Name", "Value":  "taskedsub2" }]
+        }
+      },
+      "taskedsub3": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": "us-east-1c",
+          "VpcId": { "Ref": "tasked" },
+          "CidrBlock": "111.0.3.0/24",
+          "Tags": [{ "Key": "Name", "Value":  "taskedsub3" }]
+        }
+      },
+      "taskedigw": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "taskedigw" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "tasked" },
+          "InternetGatewayId": { "Ref": "taskedigw" }
+        }
+      },
+      "taskedrouteTable": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "tasked" },
+          "Tags": [{ "Key": "Name", "Value":  "taskedrouteTable" }]
+        }
+      },
+      "taskedroutes": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "taskedrouteTable" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "taskedigw" }
+        }
+      },
+      "taskedsub1routeTableAssoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "taskedsub1" },
+          "RouteTableId": { "Ref": "taskedrouteTable" }
+        }
+      },
+      "taskedsub2routeTableAssoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "taskedsub2" },
+          "RouteTableId": { "Ref": "taskedrouteTable" }
+        }
+      },
+      "taskedSG" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "SG for ssh http",
+          "SecurityGroupIngress" : [
+            {"IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0"},
+            {"IpProtocol": "tcp", "FromPort": "80", "ToPort": "80", "CidrIp": "0.0.0.0/0"}
+          ],
+          "VpcId" : { "Ref": "tasked" },
+          "Tags" :  [{ "Key": "Name", "Value":  "taskedSG" }]
+        }
+      },
+      "ELBSG" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupName": "ELBSG",
+          "GroupDescription" : "SG for ELB traffic",
+          "SecurityGroupIngress" : [
+            { "IpProtocol" : "tcp", "FromPort" : "80", "ToPort" : "80", "CidrIp" : "0.0.0.0/0" },
+            { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : "0.0.0.0/0" }
+          ],
+          "VpcId" : { "Ref": "tasked" },
+          "Tags" :  [ { "Key": "Name", "Value":  "ELBSG" } ]
+        }
+      },
+      "taskrdsSG" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "internal connection between instance and rds",
+          "SecurityGroupIngress" : [
+              {"IpProtocol": "tcp", "FromPort": "3306", "ToPort": "3306", "CidrIp": "111.0.1.0/24"}
+          ],
+          "VpcId" : { "Ref": "tasked" },
+          "Tags" :  [ { "Key": "Name", "Value":  "taskrdsSG" } ]
+        }
+      },
+      "taskrdsDBSubnetGroup": {
+         "Type": "AWS::RDS::DBSubnetGroup",
+         "Properties": {
+            "DBSubnetGroupDescription": "subnetgroup for db instance",
+            "SubnetIds": [ { "Ref": "taskedsub1" }, { "Ref": "taskedsub2" } ],
+            "Tags": [ { "Key": "Name", "Value":  "taskrdsDBSubnetGroup" } ]
+         }
+      },
+      "taskedrdsDBInstance": {
+        "Type": "AWS::RDS::DBInstance",
+        "Properties": {
+          "AllocatedStorage": "20",
+          "DBInstanceClass": "db.t3.micro",
+          "AllowMajorVersionUpgrade": "false",
+          "AutoMinorVersionUpgrade": "false",
+          "BackupRetentionPeriod": "0",
+          "DBInstanceIdentifier": "taskdb",
+          "DBName": "taskdb",
+          "DBSubnetGroupName": { "Ref": "taskrdsDBSubnetGroup" },
+          "Engine": "MariaDB",
+          "EngineVersion": "10.6.7",
+          "MasterUsername": "admin",
+          "MasterUserPassword": "keyspace",
+          "MultiAZ": "false",
+          "Port": "3306",
+          "PubliclyAccessible": "false",
+          "StorageType": "gp2",
+          "Tags": [{ "Key": "Name", "Value":  "taskedrdsDBInstance" }],
+          "VPCSecurityGroups": [ { "Ref": "taskrdsSG" } ]
+        }
+      },
+      "webserver18": {
+          "Type": "AWS::EC2::Instance",
+          "Properties": {
+              "KeyName": "appserver",
+              "ImageId": "ami-0bf0e601c10d1a168",
+              "SubnetId": { "Ref": "taskedsub1" },
+              "InstanceType": "t2.micro",
+              "Monitoring": "false",
+              "SecurityGroupIds" : [{ "Ref": "taskedSG" }],
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "webserver17"
+                  }
+              ],
+              "UserData": {
+                  "Fn::Base64": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            "#!/bin/bash -ex",
+                            "-"
+                        ]
+                    ]
+                  }
+              }
+      }
+    },
+    "WebServerTargetGroup":{
+      "Type":"AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties":{
+        "Name":"WebServerTargetGroup",
+        "Port":80,
+        "Protocol":"HTTP",
+        "TargetGroupAttributes":[
+          {
+            "Key":"deregistration_delay.timeout_seconds",
+            "Value":"20"
+          }
+        ],
+        "VpcId": { "Ref": "tasked" },
+        "Targets":[{ "Id": { "Ref": "webserver18" }, "Port": 80 }],
+        "Tags": [ { "Key": "Name", "Value":  "WebServerTargetGroup" }],
+      }
+    },
+    "taskalb":{
+  "Type":"AWS::ElasticLoadBalancingV2::LoadBalancer",
+  "Properties":{
+    "Scheme":"internet-facing",
+    "Subnets":[
+      {
+        "Ref":"taskedsub1"
+      },
+      {
+        "Ref":"taskedsub2"
+      }
+    ],
+    "LoadBalancerAttributes":[
+      {
+        "Key":"idle_timeout.timeout_seconds",
+        "Value":"50"
+      }
+    ],
+    "SecurityGroups":[
+      {
+        "Ref":"ELBSG"
+      }
+    ],
+    "Tags": [{ "Key": "Name", "Value": "taskalb" }]
+  }
+},
+"HTTP80Listener":{
+  "Type":"AWS::ElasticLoadBalancingV2::Listener",
+  "Properties":{
+    "DefaultActions":[
+      {
+        "Type":"forward",
+        "TargetGroupArn":{
+          "Ref":"WebServerTargetGroup"
+        }
+      }
+    ],
+    "LoadBalancerArn":{
+      "Ref":"taskalb"
+    },
+    "Port":"80",
+    "Protocol":"HTTP"
+  }
+},
+"AppServerListenerRule":{
+  "Type":"AWS::ElasticLoadBalancingV2::ListenerRule",
+  "Properties":{
+    "Actions":[
+      {
+        "Type":"forward",
+        "TargetGroupArn":{
+          "Ref":"WebServerTargetGroup"
+        }
+      }
+    ],
+    "Conditions":[
+      {
+        "Field":"path-pattern",
+        "Values":[
+          "*"
+        ]
+      }
+    ],
+    "ListenerArn":{
+      "Ref":"HTTP80Listener"
+    },
+    "Priority":1
+  }
+},
+"mydns": {
+  "Type": "AWS::Route53::RecordSetGroup",
+  "Properties": {
+    "HostedZoneName": "milinddhondi.ml.",
+    "RecordSets": [ {
+      "Name": "milinddhondi.ml.",
+      "Type": "A",
+      "AliasTarget": {
+        "HostedZoneId": { "Fn::GetAtt": [ "taskalb", "CanonicalHostedZoneID"]},
+        "DNSName": { "Fn::GetAtt": ["taskalb", "DNSName"]}
+      }
+      }
+    ]
+   }
+}
+    },
+    "Outputs": {
+
+    }
+}

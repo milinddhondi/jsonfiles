@@ -1,0 +1,42 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "testing",
+    "Metadata": {
+
+    },
+    "Parameters": {
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "DNS": {
+         "Type": "AWS::Route53::HostedZone",
+         "Properties": {
+            "HostedZoneConfig": {
+               "Comment": "milinddhondi.tk"
+            },
+            "Name": "milinddhondi.tk",
+            "VPCs": [
+               {
+                  "VPCId": "vpc-06b57815468b10dcd",
+                  "VPCRegion": "us-east-1"
+               },
+            ],
+            "HostedZoneTags": [
+               {
+                  "Key": "Name",
+                  "Value": "milinddhondidns"
+               },
+            ]
+         }
+      }
+    },
+    "Outputs": {
+
+    }
+}

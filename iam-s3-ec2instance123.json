@@ -1,0 +1,99 @@
+{
+    "AWSTemplateFormatVersion":"2010-09-09",
+    "Description":"",
+    "Metadata":{
+
+    },
+    "Parameters":{
+
+    },
+    "Mappings":{
+
+    },
+    "Conditions":{
+
+    },
+    "Resources":{
+      "AmazonS3FullAccess": {
+          "Type": "AWS::IAM::Role",
+          "Properties": {
+              "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                      {
+                          "Effect": "Allow",
+                          "Principal": {
+                              "Service": [
+                                  "ec2.amazonaws.com"
+                              ]
+                          },
+                          "Action": [
+                              "sts:AssumeRole"
+                          ]
+                      }
+                  ]
+              },
+              "Path": "/",
+              "Policies": [
+                  {
+                      "PolicyName": "AmazonS3FullAccess",
+                      "PolicyDocument": {
+                          "Version": "2012-10-17",
+                          "Statement": [
+                              {
+                                  "Effect": "Allow",
+                                  "Action": [ "S3:*" ],
+                                  "Resource": "*"
+                              }
+                          ]
+                      }
+                  }
+              ]
+          }
+      },
+      "s3fullaccessInstanceProfile": {
+          "Type": "AWS::IAM::InstanceProfile",
+          "Properties": {
+              "Path": "/",
+              "Roles": [
+                  {
+                      "Ref": "AmazonS3FullAccess"
+                  }
+              ]
+          }
+      },
+      "s3Bucket": {
+        "Type": "AWS::S3::Bucket",
+        "Properties": {
+          "BucketName": "instances3bucket",
+          "Tags": [{ "Key": "Name", "Value":  "InstanceS3bucket" }]
+        }
+      },
+      "launchConfigName": {
+          "Type" : "AWS::AutoScaling::LaunchConfiguration",
+          "Properties" : {
+              "IamInstanceProfile" : "--",
+              "ImageId" : "--",
+              "InstanceMonitoring" : "--",
+              "InstanceType" : "--",
+              "KeyName" : "--",
+              "SecurityGroups" : [ "--" ],
+              "UserData" : {
+                  "Fn::Base64":
+                      {   "Fn::Join": [
+                              "",
+                              [
+                                  "#!/bin/bash -ex",
+                                  "-"
+                              ]
+
+                          ]
+                      }
+              }
+          }
+      }
+    },
+    "Outputs":{
+
+    }
+}

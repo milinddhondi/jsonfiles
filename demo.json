@@ -1,0 +1,144 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Metadata": {
+
+    },
+    "Parameters": {
+
+    },
+    "Mappings": {
+
+    },
+    "Conditions": {
+
+    },
+    "Resources": {
+      "hellovpc": {
+        "Type": "AWS::EC2::VPC",
+        "Properties": {
+          "CidrBlock": "100.99.0.0/16",
+          "Tags": [{ "Key": "Name", "Value":  "hellovpc" }]
+        }
+      },
+      "hellosubnet1": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": "us-east-1a",
+          "VpcId": { "Ref": "hellovpc" },
+          "CidrBlock": "100.99.0.0/24",
+          "Tags": [{ "Key": "Name", "Value":  "hellosubnet1" }]
+        }
+      },
+      "hellosubnet2": {
+        "Type": "AWS::EC2::Subnet",
+        "Properties": {
+          "AvailabilityZone": "us-east-1b",
+          "VpcId": { "Ref": "hellovpc" },
+          "CidrBlock": "100.99.1.0/24",
+          "Tags": [{ "Key": "Name", "Value":  "hellosubnet2" }]
+        }
+      },
+      "helloigw": {
+        "Type": "AWS::EC2::InternetGateway",
+        "Properties": {
+          "Tags": [{ "Key": "Name", "Value":  "helloigw" }]
+        }
+      },
+      "AttachGateway": {
+        "Type": "AWS::EC2::VPCGatewayAttachment",
+        "Properties": {
+          "VpcId": { "Ref": "hellovpc" },
+          "InternetGatewayId": { "Ref": "helloigw" }
+        }
+      },
+      "hellovpcroute": {
+        "Type": "AWS::EC2::RouteTable",
+        "Properties": {
+          "VpcId": { "Ref": "hellovpc" },
+          "Tags": [{ "Key": "Name", "Value":  "hellovpcroute" }]
+        }
+      },
+      "hellovpcroutes": {
+        "Type": "AWS::EC2::Route",
+        "Properties": {
+          "RouteTableId": { "Ref": "hellovpcroute" },
+          "DestinationCidrBlock": "0.0.0.0/0",
+          "GatewayId": { "Ref": "helloigw" }
+        }
+      },
+      "hellosub1routeassoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "hellosubnet1" },
+          "RouteTableId": { "Ref": "hellovpcroute" }
+        }
+      },
+      "hellosub2routeassoc": {
+        "Type": "AWS::EC2::SubnetRouteTableAssociation",
+        "Properties": {
+          "SubnetId": { "Ref": "hellosubnet2" },
+          "RouteTableId": { "Ref": "hellovpcroute" }
+        }
+      },
+      "hellovpcsg" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" : {
+          "GroupDescription" : "sg for ssh http traffic",
+          "SecurityGroupIngress" : [
+            {"IpProtocol": "tcp", "FromPort": "22", "ToPort": "22", "CidrIp": "0.0.0.0/0"},
+            {"IpProtocol": "tcp", "FromPort": "80", "ToPort": "80", "CidrIp": "0.0.0.0/0"}
+          ],
+          "VpcId" : { "Ref": "hellovpc" },
+          "Tags" :  [ { "Key": "Name", "Value":  "hellovpcsg" } ]
+        }
+      },
+      "webserver": {
+          "Type": "AWS::EC2::Instance",
+          "Properties": {
+              "KeyName": "appserver",
+              "SubnetId": { "Ref": "hellosubnet1" },
+              "ImageId": "ami-0022f774911c1d690",
+              "InstanceType": "t2.micro",
+              "Monitoring": "false",
+              "SecurityGroupIds" : [{ "Ref": "hellovpcsg" }],
+              "Tags": [
+                  {
+                      "Key": "Name",
+                      "Value": "webserver"
+                  }
+              ],
+              "UserData": {
+                  "Fn::Base64": {
+                      "Fn::Join": [
+                          "",
+                          [
+                              "#!/bin/bash -ex",
+                              "yum update -y \n",
+                              "yum install httpd -y \n",
+                              "amazon-linux-extras install epel -y \n",
+                              "amazon-linux-extras enable php7.4 -y \n",
+                              "yum install php php-mysqlnd mariadb-server -y \n",
+                              "systemctl start httpd mariadb \n",
+                              "sysyemctl enable httpd mariadb \n",
+                              "wget https://wordpress.org/latest.tar.gz \n",
+                              "tar -xvzf latest.tar.gz -C /var/www/html \n",
+                              "cd /var/www/html \n",
+                              "mv wordpress/* . \n",
+                              "mv wp-config-sample.php wp-config.php \n",
+                              "sed -i 's/database_name/taskdb/' wp-config.php \n",
+                              "sed -i 's/username_here/admin/' wp-config.php \n",
+                              "sed -i 's/password_here/keyspace/' wp-config.php \n",
+                              "systemctl restart httpd mariadb \n",
+                          ]
+                      ]
+                  }
+              }
+      }
+              }
+
+    },
+    "Outputs": {
+
+    }
+}
